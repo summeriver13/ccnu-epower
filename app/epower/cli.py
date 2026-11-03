@@ -23,7 +23,7 @@ from .config import (
     credentials_from_env,
     resolve_target,
 )
-from .errors import CCNUEWError, ConfigError
+from .errors import CCNUEWError, ConfigError, NetworkError
 from .report import (
     LOW_BALANCE_THRESHOLD_RMB,
     format_kwh,
@@ -173,7 +173,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         report = query(credentials, target)
     except CCNUEWError as exc:
         print(f"\n❌ {exc}")
-        print("   请确认已连接到 CCNU 校园网络后重试。")
+        if isinstance(exc, NetworkError):
+            print("   请确认已连接到 CCNU 校园网络后重试。")
         return 1
 
     json_path = write_report(report)

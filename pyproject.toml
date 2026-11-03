@@ -1,6 +1,6 @@
 [project]
 name = "ccnu-epower"
-version = "0.3.0"
+version = "0.4.0"
 description = "Unofficial CLI for CCNU dormitory electricity balance, usage, and bills"
 readme = "README.md"
 license = { text = "MIT" }

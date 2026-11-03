@@ -3,6 +3,7 @@ import pytest
 from epower.config import (
     ACCOUNT_ID_ENV,
     ACCOUNT_PASS_ENV,
+    APP_PRIVATE_KEY_ENV,
     AREA_ENV,
     BUILDING_ENV,
     DEFAULT_SYS_ID,
@@ -22,6 +23,18 @@ def test_credentials_require_account_and_password():
         credentials_from_env({})
     with pytest.raises(ConfigError):
         credentials_from_env({ACCOUNT_ID_ENV: "user"})
+
+
+def test_credentials_accept_a_private_key_without_a_password():
+    credentials = credentials_from_env({APP_PRIVATE_KEY_ENV: "key"})
+    assert credentials.app_private_key == "key"
+    assert credentials.account_pass == ""
+    assert credentials.sys_id == DEFAULT_SYS_ID
+
+
+def test_credentials_reject_a_password_without_an_account():
+    with pytest.raises(ConfigError):
+        credentials_from_env({ACCOUNT_PASS_ENV: "secret"})
 
 
 def test_credentials_default_sys_id():

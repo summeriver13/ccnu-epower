@@ -50,6 +50,7 @@ class SM2Auth:
         self._session = session
         self._credentials = credentials
         self._jwt: Optional[str] = None
+        self._shared: Optional[tuple[str, str]] = None
         self._sm2 = sm2.CryptSM2(
             public_key=SM2_PUBLIC_KEY_HEX,
             private_key="",
@@ -58,16 +59,51 @@ class SM2Auth:
 
     def generate_signature(self) -> str:
         """Build the signed query string for the login endpoint."""
+        account_id, account_pass = self._login_credentials()
         timestamp = int(time.time())
-        digest = hashlib.md5(self._credentials.account_pass.encode()).hexdigest()
-        query = (
-            f"p1={self._credentials.account_id}&p2={digest}"
-            f"&p3={self._credentials.sys_id}&t={timestamp}"
-        )
+        digest = hashlib.md5(account_pass.encode()).hexdigest()
+        sys_id = self._credentials.sys_id
+        query = f"p1={account_id}&p2={digest}&p3={sys_id}&t={timestamp}"
         cipher_bytes = self._sm2.encrypt(query.encode())
         if cipher_bytes is None:
             raise AuthError("SM2 加密失败：encrypt() 返回 None")
         return f"{query}&s={cipher_bytes.hex()}"
+
+    def _login_credentials(self) -> tuple[str, str]:
+        """Return the account that signs in, loading the shared one on demand."""
+        if self._credentials.account_pass:
+            return self._credentials.account_id, self._credentials.account_pass
+        if self._shared is None:
+            self._shared = self._fetch_shared_account()
+        return self._shared
+
+    def _fetch_shared_account(self) -> tuple[str, str]:
+        """Read the platform-wide account that the web frontend logs in with."""
+        url = f"{API_BASE}/v1/Authentication/GetAP?id={self._credentials.sys_id}"
+        try:
+            response = self._session.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            raise NetworkError(f"获取共享账号失败：{exc}") from exc
+        except ValueError as exc:
+            raise ParseError(f"共享账号响应解析失败：{exc}") from exc
+
+        data = payload.get("Data")
+        if not isinstance(data, dict):
+            raise ParseError(f"共享账号响应 Data 字段类型异常：{type(data).__name__}")
+        decryptor = sm2.CryptSM2(
+            private_key=self._credentials.app_private_key, public_key="", mode=1
+        )
+        try:
+            account_id = decryptor.decrypt(bytes.fromhex(data["P1"])).decode()
+            account_pass = decryptor.decrypt(bytes.fromhex(data["P2"])).decode()
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            raise ParseError(f"共享账号解密失败：{exc}") from exc
+        if not account_id or not account_pass:
+            raise AuthError("共享账号解密结果为空：请检查平台返回的数据")
+        logger.info("Shared platform account loaded")
+        return account_id, account_pass
 
     def get_jwt(self) -> str:
         """Return a valid token, logging in again when the cached one expired."""
@@ -99,7 +135,8 @@ class SM2Auth:
         else:
             raise ParseError(f"JWT 认证响应 Data 字段类型异常：{type(data).__name__}")
         if not token:
-            raise AuthError("JWT 认证失败：响应中未找到 access_Jwt")
+            reason = data.get("Msg") if isinstance(data, dict) else ""
+            raise AuthError(f"JWT 认证失败：{reason or '响应中未找到 access_Jwt'}")
         self._jwt = token
         logger.info("JWT obtained successfully")
         return token

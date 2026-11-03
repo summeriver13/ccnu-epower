@@ -16,7 +16,8 @@ You are responsible for following the campus network and platform terms.
 - Python 3.9 or newer
 - [uv](https://docs.astral.sh/uv/)
 - A campus network connection: the API is only reachable from inside CCNU
-- Your own platform account
+- A platform account, or the shared-account key that the platform frontend
+  uses (see Configure)
 
 ## Install
 
@@ -42,6 +43,23 @@ CCNU_ROOM=ROOM-NAME
 ```
 
 `.env` is ignored by Git. The account values have no default on purpose.
+
+### Shared account
+
+The platform frontend logs in without a password. It reads an encrypted
+account from `/v1/Authentication/GetAP` and decrypts it with an SM2 private
+key that ships in the frontend bundle. The tool can do the same:
+
+```ini
+CCNU_APP_PRIVATE_KEY=<key from the frontend bundle>
+```
+
+Leave `CCNU_ACCOUNT_PASS` empty to use this path. The tool then fetches and
+decrypts the shared account on every run, so a password rotation does not
+break it. The key stays out of this repository.
+
+This path uses a campus-wide account. Check that your use follows the platform
+terms.
 
 ## Usage
 

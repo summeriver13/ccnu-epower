@@ -13,6 +13,7 @@ API_BASE = "https://jnb.ccnu.edu.cn/ICBS_V2_Server"
 SYS_ID_ENV = "CCNU_SYS_ID"
 ACCOUNT_ID_ENV = "CCNU_ACCOUNT_ID"
 ACCOUNT_PASS_ENV = "CCNU_ACCOUNT_PASS"
+APP_PRIVATE_KEY_ENV = "CCNU_APP_PRIVATE_KEY"
 AREA_ENV = "CCNU_AREA"
 BUILDING_ENV = "CCNU_BUILDING"
 FLOOR_ENV = "CCNU_FLOOR"
@@ -32,11 +33,16 @@ RATE_LIMIT_MIN_INTERVAL_SECONDS = 0.5
 
 @dataclass(frozen=True)
 class Credentials:
-    """Platform account used by the SM2 login handshake."""
+    """Platform account used by the SM2 login handshake.
+
+    A password signs in with that account. Without a password, the private
+    key decrypts the shared account that the platform frontend logs in with.
+    """
 
     sys_id: str
-    account_id: str
-    account_pass: str
+    account_id: str = ""
+    account_pass: str = ""
+    app_private_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -73,19 +79,26 @@ def credentials_from_env(env: Optional[Mapping[str, str]] = None) -> Credentials
     """Read the platform account from the environment.
 
     Raises:
-        ConfigError: When the account ID or password is missing.
+        ConfigError: When neither a password nor a private key is set.
     """
     source = _source(env)
     account_id = source.get(ACCOUNT_ID_ENV, "").strip()
     account_pass = source.get(ACCOUNT_PASS_ENV, "").strip()
-    if not account_id or not account_pass:
+    app_private_key = source.get(APP_PRIVATE_KEY_ENV, "").strip()
+    if account_pass and not account_id:
         raise ConfigError(
-            f"缺少平台账号：请设置 {ACCOUNT_ID_ENV} 和 {ACCOUNT_PASS_ENV} 环境变量"
+            f"缺少账号：已设置 {ACCOUNT_PASS_ENV}，还需设置 {ACCOUNT_ID_ENV}"
+        )
+    if not account_pass and not app_private_key:
+        raise ConfigError(
+            f"缺少平台账号：请设置 {ACCOUNT_PASS_ENV}，"
+            f"或设置 {APP_PRIVATE_KEY_ENV} 使用平台共享账号"
         )
     return Credentials(
         sys_id=source.get(SYS_ID_ENV, "").strip() or DEFAULT_SYS_ID,
         account_id=account_id,
         account_pass=account_pass,
+        app_private_key=app_private_key,
     )
 
 
