@@ -1,3 +1,7 @@
+import sys
+
+import pytest
+
 from epower.tray import ICON_SIZE, autostart_target, build_image
 from epower.widget import (
     COLOR_ERROR,
@@ -78,11 +82,13 @@ def test_build_image_returns_a_square_icon():
     assert image.mode == "RGBA"
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_autostart_target_uses_pythonw():
     assert "pythonw.exe" in autostart_target().lower()
     assert "-m epower.tray" in autostart_target()
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_uninstall_without_key_is_not_an_error(monkeypatch):
     import winreg
 
