@@ -2,7 +2,7 @@
 
 
 class CCNUEWError(RuntimeError):
-    """Base exception for all CCNU Electricity Watch errors."""
+    """Base exception for all ccnu-epower errors."""
 
 
 class ConfigError(CCNUEWError):
