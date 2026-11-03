@@ -1,4 +1,4 @@
-# CCNU Electricity Watch
+# ccnu-epower
 
 Unofficial command line client for the CCNU dormitory electricity platform.
 It queries the remaining balance, daily usage, monthly bills, and recharge

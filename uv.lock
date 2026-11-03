@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "ccnu-epower-watch"
+name = "ccnu-epower"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
