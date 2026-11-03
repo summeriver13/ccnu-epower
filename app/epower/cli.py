@@ -134,7 +134,6 @@ def print_usage(parser: argparse.ArgumentParser) -> None:
 def query(credentials: Credentials, target: Target) -> dict[str, Any]:
     session = build_session()
     auth = SM2Auth(session, credentials)
-    print("🔗 正在连接校园网 …")
     api = NewAPI(session, auth)
     return collect_report(api, target)
 
@@ -169,6 +168,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     else:
         print(f"🔍 正在查找 {target.building_name} {target.room_name} …")
 
+    print("🔗 正在连接校园网 …")
     try:
         report = query(credentials, target)
     except CCNUEWError as exc:

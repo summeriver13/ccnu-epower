@@ -1,6 +1,6 @@
 [project]
 name = "ccnu-epower"
-version = "0.4.0"
+version = "0.5.0"
 description = "Unofficial CLI for CCNU dormitory electricity balance, usage, and bills"
 readme = "README.md"
 license = { text = "MIT" }
@@ -15,10 +15,13 @@ dependencies = [
     "requests>=2.28.0",
     "gmssl>=3.2.0",
     "python-dotenv>=1.2.1",
+    "pillow>=10.1",
+    "pystray>=0.19",
 ]
 
 [project.scripts]
 epower = "epower.cli:main"
+epower-tray = "epower.tray:main"
 
 [project.urls]
 Homepage = "https://github.com/summeriver13/ccnu-epower"

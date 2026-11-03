@@ -89,6 +89,30 @@ The report goes to `output/latest.json` and overwrites the previous file.
 
 The command prints a warning when the balance is below 20 CNY.
 
+## Tray icon
+
+`epower-tray` keeps the balance in the Windows notification area. Windows 11
+no longer accepts third-party taskbar bands, so the tray icon is the closest
+supported place.
+
+```bash
+uv run epower-tray
+```
+
+The icon shows the integer balance. Green means the balance is normal, amber
+means below 20 CNY, and red means the last refresh failed. Hover for the full
+tooltip. The menu refreshes on demand, opens `output/latest.json`, or quits.
+
+A refresh runs every 60 minutes. Set `CCNU_REFRESH_MINUTES` to change it.
+
+```bash
+uv run epower-tray --install-autostart      # writes HKCU, Run key
+uv run epower-tray --uninstall-autostart
+```
+
+Fill `.env` before you install the autostart entry. The tray runs without a
+console, so a missing setting shows up only in the tooltip.
+
 ## Exit codes
 
 | Code | Meaning |
