@@ -31,7 +31,7 @@ ACTION_QUIT = 3
 LIGHT_TASKBAR = (243, 243, 243)
 DARK_TASKBAR = (32, 32, 32)
 RESTART_DELAY_SECONDS = 3.0
-KEEP_ON_TOP_SECONDS = 3.0
+KEEP_ON_TOP_SECONDS = 0.1
 
 
 def taskbar_is_light() -> bool:
@@ -97,8 +97,11 @@ class TaskbarApp:
             self._stop.wait(refresh_minutes() * 60)
 
     def _keep_on_top(self) -> None:
+        from . import win32
+
         while not self._stop.is_set():
-            self.band.keep_on_top()
+            if not win32.is_above(self.band.hwnd, self.band.shell):
+                self.band.keep_on_top()
             self._stop.wait(KEEP_ON_TOP_SECONDS)
 
     def refresh(self) -> None:
