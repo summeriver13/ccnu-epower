@@ -24,6 +24,7 @@ ACTION_QUIT = 3
 LIGHT_TASKBAR = (243, 243, 243)
 DARK_TASKBAR = (32, 32, 32)
 RESTART_DELAY_SECONDS = 3.0
+KEEP_ON_TOP_SECONDS = 3.0
 
 
 def taskbar_is_light() -> bool:
@@ -76,8 +77,8 @@ class TaskbarApp:
         if not self.band.create():
             print("找不到任务栏，无法显示电费", file=sys.stderr)
             return 1
-        thread = threading.Thread(target=self._loop, daemon=True)
-        thread.start()
+        for target in (self._loop, self._keep_on_top):
+            threading.Thread(target=target, daemon=True).start()
         self.band.run()
         self._stop.set()
         return 0 if self.quit_requested else 1
@@ -86,6 +87,11 @@ class TaskbarApp:
         while not self._stop.is_set():
             self.refresh()
             self._stop.wait(refresh_minutes() * 60)
+
+    def _keep_on_top(self) -> None:
+        while not self._stop.is_set():
+            self.band.keep_on_top()
+            self._stop.wait(KEEP_ON_TOP_SECONDS)
 
     def refresh(self) -> None:
         """Fetch a new report and repaint the band."""

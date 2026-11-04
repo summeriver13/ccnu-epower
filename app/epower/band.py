@@ -13,22 +13,26 @@ from .win32 import (
     DT_CENTER,
     DT_SINGLELINE,
     DT_VCENTER,
+    EX_STYLE,
     FONT_POINTS,
+    HWND_TOPMOST,
+    MA_NOACTIVATE,
     PAINTSTRUCT,
     SIZE,
+    SWP_NOACTIVATE,
     SWP_SHOWWINDOW,
     TRANSPARENT,
     WM_DESTROY,
     WM_ERASEBKGND,
     WM_LBUTTONUP,
+    WM_MOUSEACTIVATE,
     WM_PAINT,
     WM_PRINTCLIENT,
     WM_RBUTTONUP,
     WNDCLASSW,
     WNDPROC,
-    WS_CHILD,
     WS_CLIPSIBLINGS,
-    WS_VISIBLE,
+    WS_POPUP,
     Color,
     _colorref,
     _window_rect,
@@ -63,7 +67,7 @@ class Band:
         self._proc = WNDPROC(self._wndproc)
 
     def create(self) -> bool:
-        """Create the window and attach it to the taskbar."""
+        """Create the borderless window over the taskbar."""
         self.shell = user32.FindWindowW("Shell_TrayWnd", None)
         tray = user32.FindWindowExW(self.shell, None, "TrayNotifyWnd", None)
         if not self.shell or not tray:
@@ -118,22 +122,22 @@ class Band:
         if not shell or not tray:
             return False
         self.shell = shell
-        left, top, right, bottom = _window_rect(shell)
+        _, top, _, bottom = _window_rect(shell)
         width, height = self._width(self.text), self._scaled(BAND_HEIGHT_AT_96DPI)
         x = _window_rect(tray)[0] - self._scaled(BAND_GAP_AT_96DPI) - width
         y = top + (bottom - top - height) // 2
         self._size = (width, height)
         if not self.hwnd:
             self.hwnd = user32.CreateWindowExW(
-                0,
+                EX_STYLE,
                 "EpowerTaskbarBand",
                 "",
-                WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
-                x - left,
-                y - top,
+                WS_POPUP | WS_CLIPSIBLINGS,
+                x,
+                y,
                 width,
                 height,
-                shell,
+                None,
                 None,
                 kernel32.GetModuleHandleW(None),
                 None,
@@ -141,9 +145,19 @@ class Band:
             if not self.hwnd:
                 return False
         user32.SetWindowPos(
-            self.hwnd, 0, x - left, y - top, width, height, SWP_SHOWWINDOW
+            self.hwnd,
+            HWND_TOPMOST,
+            x,
+            y,
+            width,
+            height,
+            SWP_NOACTIVATE | SWP_SHOWWINDOW,
         )
         return True
+
+    def keep_on_top(self) -> None:
+        """Re-place the band and push it above the taskbar again."""
+        self._place()
 
     def update(self, text: str, color: Color) -> None:
         """Replace the text and colour, then repaint."""
@@ -206,6 +220,8 @@ class Band:
         if msg == WM_RBUTTONUP and self.on_right_click:
             self.on_right_click()
             return 0
+        if msg == WM_MOUSEACTIVATE:
+            return MA_NOACTIVATE
         if msg == WM_DESTROY:
             user32.PostQuitMessage(0)
             return 0
