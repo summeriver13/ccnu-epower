@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
-from typing import Tuple
+from typing import Optional, Tuple
 
 Color = Tuple[int, int, int]
 
@@ -26,6 +26,7 @@ EX_STYLE = WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE
 HWND_TOPMOST = -1
 SWP_NOACTIVATE = 0x0010
 WM_MOUSEACTIVATE = 0x0021
+GW_HWNDPREV = 3
 MA_NOACTIVATE = 3
 WM_DESTROY = 0x0002
 WM_PAINT = 0x000F
@@ -106,6 +107,8 @@ user32.DestroyWindow.argtypes = [wintypes.HWND]
 user32.PostQuitMessage.argtypes = [ctypes.c_int]
 user32.IsWindow.argtypes = [wintypes.HWND]
 user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.c_void_p]
+user32.GetWindow.restype = wintypes.HWND
+user32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
 user32.ScreenToClient.argtypes = [wintypes.HWND, ctypes.c_void_p]
 user32.GetMessageW.argtypes = [
     ctypes.c_void_p,
@@ -276,3 +279,15 @@ def show_menu(hwnd, items, on_command) -> None:
     user32.PostMessageW(hwnd, WM_NULL, 0, 0)
     user32.DestroyMenu(menu)
     on_command(chosen)
+
+
+def is_above(window: Optional[int], other: int) -> bool:
+    """Return True when window sits above other in the z-order."""
+    if not window:
+        return True
+    current = user32.GetWindow(other, GW_HWNDPREV)
+    while current:
+        if current == window:
+            return True
+        current = user32.GetWindow(current, GW_HWNDPREV)
+    return False
