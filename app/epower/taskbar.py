@@ -18,7 +18,7 @@ from .widget import (
     alert_due,
     balance_value,
     band_text,
-    refresh_minutes,
+    next_refresh_minutes,
     text_color,
 )
 
@@ -94,7 +94,7 @@ class TaskbarApp:
     def _loop(self) -> None:
         while not self._stop.is_set():
             self.refresh()
-            self._stop.wait(refresh_minutes() * 60)
+            self._stop.wait(next_refresh_minutes(self.report) * 60)
 
     def _keep_on_top(self) -> None:
         from . import win32

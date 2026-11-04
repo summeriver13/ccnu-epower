@@ -11,10 +11,12 @@ from epower.widget import (
     DEFAULT_REFRESH_MINUTES,
     LOW_BALANCE_THRESHOLD_RMB,
     REFRESH_ENV,
+    RETRY_MINUTES,
     alert_cleared,
     alert_due,
     balance_value,
     band_text,
+    next_refresh_minutes,
     refresh_minutes,
     room_name,
     text_color,
@@ -66,7 +68,8 @@ def test_text_colour_follows_the_balance():
 
 
 def test_text_colour_on_failure():
-    assert text_color(report(errors=["boom"]), light_taskbar=False) == COLOR_ERROR
+    assert text_color(report(money=None), light_taskbar=False) == COLOR_ERROR
+    assert text_color(report(errors=["boom"]), light_taskbar=False) == COLOR_OK_DARK
     assert text_color(None, light_taskbar=False) == COLOR_OK_DARK
 
 
@@ -75,6 +78,13 @@ def test_refresh_minutes_default_and_override():
     assert refresh_minutes({REFRESH_ENV: "15"}) == 15
     assert refresh_minutes({REFRESH_ENV: "0"}) == 1
     assert refresh_minutes({REFRESH_ENV: "soon"}) == DEFAULT_REFRESH_MINUTES
+
+
+def test_next_refresh_minutes_retries_soon_after_a_failure():
+    assert next_refresh_minutes(report()) == DEFAULT_REFRESH_MINUTES
+    assert next_refresh_minutes(report(), {REFRESH_ENV: "15"}) == 15
+    assert next_refresh_minutes(None) == RETRY_MINUTES
+    assert next_refresh_minutes(report(errors=["boom"])) == RETRY_MINUTES
 
 
 def test_taskbar_theme_is_dark_off_windows():

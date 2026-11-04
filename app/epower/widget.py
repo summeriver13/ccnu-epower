@@ -7,6 +7,7 @@ from typing import Any, Mapping, Optional, Tuple
 
 REFRESH_ENV = "CCNU_REFRESH_MINUTES"
 DEFAULT_REFRESH_MINUTES = 60
+RETRY_MINUTES = 5
 LOW_BALANCE_THRESHOLD_RMB = 20.0
 BAND_LABEL = "电费"
 PENDING_TEXT = "获取中…"
@@ -66,7 +67,7 @@ def text_color(report: Optional[Mapping[str, Any]], light_taskbar: bool) -> Colo
     if report is None:
         return normal
     value = balance_value(report)
-    if value is None or report.get("errors"):
+    if value is None:
         return COLOR_ERROR if not light_taskbar else (185, 28, 28)
     if value < LOW_BALANCE_THRESHOLD_RMB:
         return COLOR_LOW
@@ -93,3 +94,12 @@ def refresh_minutes(env: Optional[Mapping[str, str]] = None) -> int:
         return max(1, int(raw))
     except ValueError:
         return DEFAULT_REFRESH_MINUTES
+
+
+def next_refresh_minutes(
+    report: Optional[Mapping[str, Any]], env: Optional[Mapping[str, str]] = None
+) -> int:
+    """Return the wait before the next fetch, short after a failed one."""
+    if report is None or report.get("errors"):
+        return RETRY_MINUTES
+    return refresh_minutes(env)

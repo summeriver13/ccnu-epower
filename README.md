@@ -174,7 +174,7 @@ it, and it follows theme changes.
 | --- | --- |
 | 20 CNY or more | White text |
 | Below 20 CNY | Amber text, one system notification |
-| Last refresh failed | Red text |
+| Balance missing | Red text |
 
 - Left click opens `output/latest.json`.
 - Right click refreshes, opens the report, or quits.
@@ -182,6 +182,8 @@ it, and it follows theme changes.
   Windows drops balloons from hidden icons, so a tray icon shows for 15
   seconds around the balloon and then goes away.
 - A refresh runs every 60 minutes. Set `CCNU_REFRESH_MINUTES` to change it.
+- A failed fetch retries after 5 minutes. The band stays red only while the
+  balance is unknown. A failed sub-query does not change the colour.
 
 ### Start at logon
 
