@@ -100,9 +100,13 @@ placed next to the tray.
 uv run epower-band
 ```
 
-The band shows `¥74.39`. The text turns amber below 20 CNY and red when the
-last refresh failed. Left click opens `output/latest.json`. Right click
-refreshes, opens the report, or quits.
+The band shows `电费 南4-316 ¥74.39`, so the number carries its room. The
+text turns amber below 20 CNY and red when the last refresh failed. Left
+click opens `output/latest.json`. Right click refreshes, opens the report,
+or quits.
+
+When the balance drops below 20 CNY, a system notification appears once. It
+appears again only after the balance goes back above 20 CNY.
 
 A refresh runs every 60 minutes. Set `CCNU_REFRESH_MINUTES` to change it.
 

@@ -13,7 +13,14 @@ from typing import Any, Optional, Sequence
 
 from .config import CliOptions, credentials_from_env, resolve_target
 from .errors import CCNUEWError, ConfigError
-from .widget import band_text, refresh_minutes, text_color
+from .widget import (
+    alert_cleared,
+    alert_due,
+    balance_value,
+    band_text,
+    refresh_minutes,
+    text_color,
+)
 
 WIN = sys.platform == "win32"
 AUTOSTART_KEY = r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
@@ -64,6 +71,7 @@ class TaskbarApp:
         self.report: Optional[dict[str, Any]] = None
         self.message = ""
         self.quit_requested = False
+        self.alerted = False
         self.band = Band(
             band_text(None),
             text_color(None, self.light),
@@ -107,6 +115,16 @@ class TaskbarApp:
     def apply(self, report: Optional[dict[str, Any]]) -> None:
         self.report = report
         self.band.update(band_text(report), text_color(report, self.light))
+        self._alert(balance_value(report))
+
+    def _alert(self, value: Optional[float]) -> None:
+        if alert_cleared(value):
+            self.alerted = False
+            return
+        if alert_due(value, self.alerted):
+            from .notify import send_low_balance
+
+            self.alerted = send_low_balance(value)
 
     def open_report(self) -> None:
         from .cli import OUTPUT_DIR, OUTPUT_FILE

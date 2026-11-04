@@ -8,6 +8,9 @@ from typing import Any, Mapping, Optional, Tuple
 REFRESH_ENV = "CCNU_REFRESH_MINUTES"
 DEFAULT_REFRESH_MINUTES = 60
 LOW_BALANCE_THRESHOLD_RMB = 20.0
+BAND_LABEL = "电费"
+PENDING_TEXT = "获取中…"
+FAILED_TEXT = "取数失败"
 
 COLOR_OK_DARK = (255, 255, 255)
 COLOR_OK_LIGHT = (32, 32, 32)
@@ -30,14 +33,31 @@ def balance_value(report: Optional[Mapping[str, Any]]) -> Optional[float]:
     return None
 
 
+def room_name(report: Optional[Mapping[str, Any]]) -> str:
+    """Return the room shown on the taskbar, or an empty string."""
+    if not report:
+        return ""
+    location = report.get("location")
+    if not isinstance(location, Mapping):
+        return ""
+    name = location.get("room_name")
+    return name if isinstance(name, str) else ""
+
+
 def band_text(report: Optional[Mapping[str, Any]]) -> str:
-    """Return the text drawn on the taskbar, such as \u00a574.39."""
-    if report is None:
-        return "获取中…"
+    """Return the text drawn on the taskbar, such as 电费 南4-316 \u00a574.39."""
     value = balance_value(report)
-    if value is None:
-        return "取数失败"
-    return f"\u00a5{value:.2f}"
+    parts = [BAND_LABEL]
+    room = room_name(report)
+    if room:
+        parts.append(room)
+    if report is None:
+        parts.append(PENDING_TEXT)
+    elif value is None:
+        parts.append(FAILED_TEXT)
+    else:
+        parts.append(f"\u00a5{value:.2f}")
+    return " ".join(parts)
 
 
 def text_color(report: Optional[Mapping[str, Any]], light_taskbar: bool) -> Color:
@@ -51,6 +71,16 @@ def text_color(report: Optional[Mapping[str, Any]], light_taskbar: bool) -> Colo
     if value < LOW_BALANCE_THRESHOLD_RMB:
         return COLOR_LOW
     return normal
+
+
+def alert_due(value: Optional[float], alerted: bool) -> bool:
+    """Return True when the balance is low and no alert was sent yet."""
+    return value is not None and value < LOW_BALANCE_THRESHOLD_RMB and not alerted
+
+
+def alert_cleared(value: Optional[float]) -> bool:
+    """Return True when the balance is back above the alert threshold."""
+    return value is not None and value >= LOW_BALANCE_THRESHOLD_RMB
 
 
 def refresh_minutes(env: Optional[Mapping[str, str]] = None) -> int:
