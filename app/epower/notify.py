@@ -17,12 +17,15 @@ CALLBACK_MESSAGE = 0x0400 + 1
 ICON_ID = 1
 ICON_INFORMATION = 32516
 BALLOON_TIMEOUT_MS = 10_000
+BALLOON_LIFETIME_SECONDS = 15.0
+TIP = "ccnu-epower"
 NIM_ADD = 0
 NIM_MODIFY = 1
+NIM_DELETE = 2
 NIF_MESSAGE = 0x1
 NIF_ICON = 0x2
+NIF_TIP = 0x4
 NIF_INFO = 0x10
-NIS_HIDDEN = 0x1
 NIIF_WARNING = 0x2
 
 
@@ -62,11 +65,16 @@ shell32.Shell_NotifyIconW.argtypes = [wintypes.DWORD, ctypes.c_void_p]
 
 
 class _Notifier:
-    """Hidden tray icon that owns the notification channel."""
+    """Owns the tray icon that carries the balloon.
+
+    Windows drops balloons of icons marked hidden, so the icon is shown while
+    the balloon lives and removed afterwards.
+    """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._hwnd: Optional[int] = None
+        self._added = False
         self._proc = WNDPROC(self._wndproc)
 
     def send(self, title: str, message: str) -> bool:
@@ -80,11 +88,37 @@ class _Notifier:
             data.szInfoTitle = title
             data.dwInfoFlags = NIIF_WARNING
             data.uTimeout = BALLOON_TIMEOUT_MS
-            return bool(shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(data)))
+            if not shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(data)):
+                return False
+            timer = threading.Timer(BALLOON_LIFETIME_SECONDS, self.remove)
+            timer.daemon = True
+            timer.start()
+            return True
+
+    def remove(self) -> None:
+        """Drop the tray icon once the balloon is gone."""
+        with self._lock:
+            if not self._added:
+                return
+            shell32.Shell_NotifyIconW(NIM_DELETE, ctypes.byref(self._data()))
+            self._added = False
 
     def _ensure(self) -> bool:
-        if self._hwnd:
+        if self._hwnd is None and not self._create_window():
+            return False
+        if self._added:
             return True
+        data = self._data()
+        data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP
+        data.uCallbackMessage = CALLBACK_MESSAGE
+        data.hIcon = user32.LoadIconW(None, ICON_INFORMATION)
+        data.szTip = TIP
+        if not shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(data)):
+            return False
+        self._added = True
+        return True
+
+    def _create_window(self) -> bool:
         if not self._register():
             return False
         instance = kernel32.GetModuleHandleW(None)
@@ -92,16 +126,6 @@ class _Notifier:
             0, CLASS_NAME, "", 0, 0, 0, 0, 0, None, None, instance, None
         )
         if not self._hwnd:
-            return False
-        data = self._data()
-        data.uFlags = NIF_MESSAGE | NIF_ICON
-        data.uCallbackMessage = CALLBACK_MESSAGE
-        data.hIcon = user32.LoadIconW(None, ICON_INFORMATION)
-        data.dwState = NIS_HIDDEN
-        data.dwStateMask = NIS_HIDDEN
-        if not shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(data)):
-            user32.DestroyWindow(self._hwnd)
-            self._hwnd = None
             return False
         threading.Thread(target=self._pump, daemon=True).start()
         return True
