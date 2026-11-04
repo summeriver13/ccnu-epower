@@ -89,29 +89,29 @@ The report goes to `output/latest.json` and overwrites the previous file.
 
 The command prints a warning when the balance is below 20 CNY.
 
-## Tray icon
+## Taskbar band
 
-`epower-tray` keeps the balance in the Windows notification area. Windows 11
-no longer accepts third-party taskbar bands, so the tray icon is the closest
-supported place.
+`epower-band` shows the balance next to the clock, in the same place as the
+date. Windows 11 has no supported taskbar plugin API, so the band is a child
+window of the taskbar.
 
 ```bash
-uv run epower-tray
+uv run epower-band
 ```
 
-The icon shows the integer balance. Green means the balance is normal, amber
-means below 20 CNY, and red means the last refresh failed. Hover for the full
-tooltip. The menu refreshes on demand, opens `output/latest.json`, or quits.
+The band shows `¥74.39`. The text turns amber below 20 CNY and red when the
+last refresh failed. Left click opens `output/latest.json`. Right click
+refreshes, opens the report, or quits.
 
 A refresh runs every 60 minutes. Set `CCNU_REFRESH_MINUTES` to change it.
 
 ```bash
-uv run epower-tray --install-autostart      # writes HKCU, Run key
-uv run epower-tray --uninstall-autostart
+uv run epower-band --install-autostart      # writes HKCU, Run key
+uv run epower-band --uninstall-autostart
 ```
 
-Fill `.env` before you install the autostart entry. The tray runs without a
-console, so a missing setting shows up only in the tooltip.
+Fill `.env` before you install the autostart entry. The band runs without a
+console, so a missing setting shows up in the band text.
 
 ## Exit codes
 

@@ -2,27 +2,24 @@ import sys
 
 import pytest
 
-from epower.tray import ICON_SIZE, autostart_target, build_image
+from epower.taskbar import autostart_target, taskbar_is_light
 from epower.widget import (
     COLOR_ERROR,
     COLOR_LOW,
-    COLOR_OK,
+    COLOR_OK_DARK,
+    COLOR_OK_LIGHT,
     DEFAULT_REFRESH_MINUTES,
+    LOW_BALANCE_THRESHOLD_RMB,
     REFRESH_ENV,
     balance_value,
-    icon_color,
-    icon_text,
+    band_text,
     refresh_minutes,
-    tray_title,
+    text_color,
 )
 
 
-def report(money=74.39, usage=9.62, errors=None):
-    return {
-        "query_time": "2026-11-04T00:01:36+08:00",
-        "balance": {"remain_money": money, "yesterday_usage_kwh": usage},
-        "errors": errors or [],
-    }
+def report(money=74.39, errors=None):
+    return {"balance": {"remain_money": money}, "errors": errors or []}
 
 
 def test_balance_value_reads_remain_money():
@@ -35,38 +32,25 @@ def test_balance_value_returns_none_for_bad_payloads():
     assert balance_value({"balance": {"remain_money": "74"}}) is None
 
 
-def test_icon_text_keeps_two_digits():
-    assert icon_text(report(74.39)) == "74"
+def test_band_text_formats_two_decimals():
+    assert band_text(report()) == "\u00a574.39"
 
 
-def test_icon_text_has_one_decimal_below_ten():
-    assert icon_text(report(5.25)) == "5.2"
+def test_band_text_without_data():
+    assert band_text(None) == "获取中…"
+    assert band_text({"balance": {}}) == "取数失败"
 
 
-def test_icon_text_without_data():
-    assert icon_text(None) == "?"
+def test_text_colour_follows_the_balance():
+    assert text_color(report(), light_taskbar=False) == COLOR_OK_DARK
+    assert text_color(report(), light_taskbar=True) == COLOR_OK_LIGHT
+    low = report(LOW_BALANCE_THRESHOLD_RMB - 1)
+    assert text_color(low, light_taskbar=False) == COLOR_LOW
 
 
-def test_icon_color_tracks_state():
-    assert icon_color(report(74.39)) == COLOR_OK
-    assert icon_color(report(5.0)) == COLOR_LOW
-    assert icon_color(report(74.39, errors=["boom"])) == COLOR_ERROR
-    assert icon_color(None) == COLOR_ERROR
-
-
-def test_tray_title_lists_balance_usage_and_time():
-    title = tray_title(report())
-    assert "剩余 ¥74.39" in title
-    assert "昨日 9.62 度" in title
-    assert "2026-11-04T00:01" in title
-
-
-def test_tray_title_reports_failed_endpoints():
-    assert "接口失败 2 项" in tray_title(report(errors=["a", "b"]))
-
-
-def test_tray_title_without_report():
-    assert "尚未取到数据" in tray_title(None)
+def test_text_colour_on_failure():
+    assert text_color(report(errors=["boom"]), light_taskbar=False) == COLOR_ERROR
+    assert text_color(None, light_taskbar=False) == COLOR_OK_DARK
 
 
 def test_refresh_minutes_default_and_override():
@@ -76,26 +60,22 @@ def test_refresh_minutes_default_and_override():
     assert refresh_minutes({REFRESH_ENV: "soon"}) == DEFAULT_REFRESH_MINUTES
 
 
-def test_build_image_returns_a_square_icon():
-    image = build_image("74", COLOR_OK)
-    assert image.size == (ICON_SIZE, ICON_SIZE)
-    assert image.mode == "RGBA"
+def test_taskbar_theme_is_dark_off_windows():
+    if sys.platform != "win32":
+        assert taskbar_is_light() is False
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_autostart_target_uses_pythonw():
-    assert "pythonw.exe" in autostart_target().lower()
-    assert "-m epower.tray" in autostart_target()
+    command = autostart_target()
+    assert "pythonw.exe" in command.lower()
+    assert "-m epower.taskbar" in command
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
-def test_uninstall_without_key_is_not_an_error(monkeypatch):
-    import winreg
+def test_autostart_round_trip():
+    from epower.taskbar import install_autostart, uninstall_autostart
 
-    from epower import tray
-
-    def missing(*_args, **_kwargs):
-        raise FileNotFoundError
-
-    monkeypatch.setattr(winreg, "OpenKey", missing)
-    assert tray.uninstall_autostart() is False
+    install_autostart()
+    assert uninstall_autostart() is True
+    assert uninstall_autostart() is False

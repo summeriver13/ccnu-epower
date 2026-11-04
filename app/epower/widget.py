@@ -1,4 +1,4 @@
-"""Pure helpers for the tray icon text and colours."""
+"""Pure helpers for the taskbar band."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ REFRESH_ENV = "CCNU_REFRESH_MINUTES"
 DEFAULT_REFRESH_MINUTES = 60
 LOW_BALANCE_THRESHOLD_RMB = 20.0
 
-COLOR_OK = (22, 163, 74)
+COLOR_OK_DARK = (255, 255, 255)
+COLOR_OK_LIGHT = (32, 32, 32)
 COLOR_LOW = (217, 119, 6)
 COLOR_ERROR = (220, 38, 38)
 
@@ -29,48 +30,27 @@ def balance_value(report: Optional[Mapping[str, Any]]) -> Optional[float]:
     return None
 
 
-def icon_text(report: Optional[Mapping[str, Any]]) -> str:
-    """Return the short text drawn inside the tray icon."""
+def band_text(report: Optional[Mapping[str, Any]]) -> str:
+    """Return the text drawn on the taskbar, such as \u00a574.39."""
+    if report is None:
+        return "获取中…"
     value = balance_value(report)
     if value is None:
-        return "?"
-    if value >= 100:
-        return f"{value:.0f}"
-    return f"{value:.0f}" if value >= 10 else f"{value:.1f}"
+        return "取数失败"
+    return f"\u00a5{value:.2f}"
 
 
-def icon_color(report: Optional[Mapping[str, Any]]) -> Color:
-    """Return the icon colour for the current report state."""
-    if not report or report.get("errors"):
-        return COLOR_ERROR
+def text_color(report: Optional[Mapping[str, Any]], light_taskbar: bool) -> Color:
+    """Return the text colour for the current balance state."""
+    normal = COLOR_OK_LIGHT if light_taskbar else COLOR_OK_DARK
+    if report is None:
+        return normal
     value = balance_value(report)
-    if value is None:
-        return COLOR_ERROR
+    if value is None or report.get("errors"):
+        return COLOR_ERROR if not light_taskbar else (185, 28, 28)
     if value < LOW_BALANCE_THRESHOLD_RMB:
         return COLOR_LOW
-    return COLOR_OK
-
-
-def tray_title(report: Optional[Mapping[str, Any]]) -> str:
-    """Return the tooltip text for the tray icon."""
-    if not report:
-        return "ccnu-epower：尚未取到数据"
-    balance = report.get("balance") or {}
-    money = balance.get("remain_money")
-    usage = balance.get("yesterday_usage_kwh")
-    updated = str(report.get("query_time", ""))[:16]
-    parts = []
-    if isinstance(money, (int, float)):
-        parts.append(f"剩余 ¥{money:.2f}")
-    else:
-        parts.append("剩余 -")
-    if isinstance(usage, (int, float)):
-        parts.append(f"昨日 {usage:.2f} 度")
-    if updated:
-        parts.append(updated)
-    if report.get("errors"):
-        parts.append(f"接口失败 {len(report['errors'])} 项")
-    return " · ".join(parts)
+    return normal
 
 
 def refresh_minutes(env: Optional[Mapping[str, str]] = None) -> int:
