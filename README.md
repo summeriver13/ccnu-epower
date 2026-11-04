@@ -106,7 +106,9 @@ click opens `output/latest.json`. Right click refreshes, opens the report,
 or quits.
 
 When the balance drops below 20 CNY, a system notification appears once. It
-appears again only after the balance goes back above 20 CNY.
+appears again only after the balance goes back above 20 CNY. Windows drops
+balloons from hidden icons, so a tray icon shows for 15 seconds around the
+balloon and then goes away.
 
 A refresh runs every 60 minutes. Set `CCNU_REFRESH_MINUTES` to change it.
 
