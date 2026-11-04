@@ -167,7 +167,8 @@ uv run epower-band
 The band shows `电费 南4-316 ¥74.39` on the taskbar, to the left of the
 notification area icons. Windows 11 has no supported taskbar plugin API and no
 window handle for the clock, so the band is a borderless topmost window placed
-next to the tray. It stays above the taskbar and follows theme changes.
+next to the tray. The taskbar owns that window, so the taskbar never covers
+it, and it follows theme changes.
 
 | Balance | Band |
 | --- | --- |
