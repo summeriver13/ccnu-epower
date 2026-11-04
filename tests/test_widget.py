@@ -73,9 +73,19 @@ def test_autostart_target_uses_pythonw():
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
-def test_autostart_round_trip():
-    from epower.taskbar import install_autostart, uninstall_autostart
+def test_autostart_round_trip(monkeypatch):
+    import contextlib
+    import winreg
 
-    install_autostart()
-    assert uninstall_autostart() is True
-    assert uninstall_autostart() is False
+    from epower import taskbar
+
+    test_key = r"Software\ccnu-epower-test"
+    monkeypatch.setattr(taskbar, "AUTOSTART_KEY", test_key)
+    monkeypatch.setattr(taskbar, "AUTOSTART_NAME", "ccnu-epower-test")
+    try:
+        taskbar.install_autostart()
+        assert taskbar.uninstall_autostart() is True
+        assert taskbar.uninstall_autostart() is False
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, test_key)
