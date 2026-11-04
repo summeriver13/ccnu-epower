@@ -91,9 +91,10 @@ The command prints a warning when the balance is below 20 CNY.
 
 ## Taskbar band
 
-`epower-band` shows the balance next to the clock, in the same place as the
-date. Windows 11 has no supported taskbar plugin API, so the band is a child
-window of the taskbar.
+`epower-band` shows the balance on the taskbar, to the left of the
+notification area icons. Windows 11 has no supported taskbar plugin API and
+no window handle for the clock, so the band is a borderless topmost window
+placed next to the tray.
 
 ```bash
 uv run epower-band
