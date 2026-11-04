@@ -127,6 +127,8 @@ class Band:
         x = _window_rect(tray)[0] - self._scaled(BAND_GAP_AT_96DPI) - width
         y = top + (bottom - top - height) // 2
         self._size = (width, height)
+        if self.hwnd and not user32.IsWindow(self.hwnd):
+            self.hwnd = None
         if not self.hwnd:
             self.hwnd = user32.CreateWindowExW(
                 EX_STYLE,
@@ -137,7 +139,7 @@ class Band:
                 y,
                 width,
                 height,
-                None,
+                shell,
                 None,
                 kernel32.GetModuleHandleW(None),
                 None,
