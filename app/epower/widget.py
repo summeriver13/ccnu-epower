@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple
 
 REFRESH_ENV = "CCNU_REFRESH_MINUTES"
 DEFAULT_REFRESH_MINUTES = 60
@@ -47,18 +47,39 @@ def room_name(report: Optional[Mapping[str, Any]]) -> str:
 
 def band_text(report: Optional[Mapping[str, Any]]) -> str:
     """Return the text drawn on the taskbar, such as 电费 南4-316 \u00a574.39."""
-    value = balance_value(report)
-    parts = [BAND_LABEL]
+    return band_text_variants(report)[0]
+
+
+def band_text_variants(report: Optional[Mapping[str, Any]]) -> Tuple[str, ...]:
+    """Return the band texts from the widest to the narrowest."""
+    tail = tail_text(report)
     room = room_name(report)
+    variants = [f"{BAND_LABEL} {tail}"]
     if room:
-        parts.append(room)
+        variants.insert(0, f"{BAND_LABEL} {room} {tail}")
+        variants.insert(1, f"{room} {tail}")
+    variants.append(tail)
+    return tuple(dict.fromkeys(variants))
+
+
+def tail_text(report: Optional[Mapping[str, Any]]) -> str:
+    """Return the part of the band text that carries the balance."""
     if report is None:
-        parts.append(PENDING_TEXT)
-    elif value is None:
-        parts.append(FAILED_TEXT)
-    else:
-        parts.append(f"\u00a5{value:.2f}")
-    return " ".join(parts)
+        return PENDING_TEXT
+    value = balance_value(report)
+    if value is None:
+        return FAILED_TEXT
+    return f"\u00a5{value:.2f}"
+
+
+def fitting_text(
+    texts: Sequence[str], measure: Callable[[str], int], available: int
+) -> Optional[str]:
+    """Return the widest text that fits the available width."""
+    for text in texts:
+        if measure(text) <= available:
+            return text
+    return None
 
 
 def text_color(report: Optional[Mapping[str, Any]], light_taskbar: bool) -> Color:

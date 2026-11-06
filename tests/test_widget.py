@@ -16,6 +16,8 @@ from epower.widget import (
     alert_due,
     balance_value,
     band_text,
+    band_text_variants,
+    fitting_text,
     next_refresh_minutes,
     refresh_minutes,
     room_name,
@@ -52,6 +54,28 @@ def test_band_text_without_data():
     assert band_text({"balance": {}}) == "电费 取数失败"
     payload = {"balance": {}, "location": {"room_name": "南4-316"}}
     assert band_text(payload) == "电费 南4-316 取数失败"
+
+
+def test_band_text_variants_run_from_widest_to_narrowest():
+    payload = report()
+    payload["location"] = {"room_name": "南4-316"}
+    assert band_text_variants(payload) == (
+        "电费 南4-316 ¥74.39",
+        "南4-316 ¥74.39",
+        "电费 ¥74.39",
+        "¥74.39",
+    )
+
+
+def test_band_text_variants_without_a_room():
+    assert band_text_variants(report()) == ("电费 ¥74.39", "¥74.39")
+    assert band_text_variants(None) == ("电费 获取中…", "获取中…")
+
+
+def test_fitting_text_takes_the_widest_text_that_fits():
+    assert fitting_text(("abcd", "abc", "ab"), len, 3) == "abc"
+    assert fitting_text(("abcd", "abc"), len, 2) is None
+    assert fitting_text((), len, 100) is None
 
 
 def test_room_name_ignores_bad_payloads():

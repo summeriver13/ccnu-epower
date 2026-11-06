@@ -164,11 +164,26 @@ The command prints a warning when the balance is below 20 CNY.
 uv run epower-band
 ```
 
-The band shows `电费 南4-316 ¥74.39` on the taskbar, to the left of the
-notification area icons. Windows 11 has no supported taskbar plugin API and no
-window handle for the clock, so the band is a borderless topmost window placed
-next to the tray. The taskbar owns that window, so the taskbar never covers
-it, and it follows theme changes.
+The band shows `电费 南4-316 ¥74.39` at the left edge of the taskbar. The
+centred app icons keep the middle of the taskbar.
+
+Windows 11 has no supported taskbar plugin API. The taskbar draws itself on a
+XAML island and ignores the geometry of its child windows, so the band is a
+borderless topmost window owned by the taskbar. Once a second it reads the
+taskbar pixels and picks the widest text that clears the icons:
+
+| Band text | Picked when |
+| --- | --- |
+| `电费 南4-316 ¥74.39` | The full text fits |
+| `南4-316 ¥74.39` | The label does not fit |
+| `电费 ¥74.39` | The room name does not fit |
+| `¥74.39` | Only the balance fits |
+| none | Nothing fits, the band hides |
+
+```bash
+uv run epower-band --taskbar-align left     # app icons on the left, band on the right
+uv run epower-band --taskbar-align center   # app icons in the middle
+```
 
 | Balance | Band |
 | --- | --- |
@@ -176,6 +191,8 @@ it, and it follows theme changes.
 | Below 20 CNY | Amber text, one system notification |
 | Balance missing | Red text |
 
+- The band sits at the left edge, so the widest text has about 500 px of
+  room before the app icons reach it.
 - Left click opens `output/latest.json`.
 - Right click refreshes, opens the report, or quits.
 - The notification repeats only after the balance goes back above 20 CNY.

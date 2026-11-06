@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
+from .screen import content_left
+from .widget import fitting_text
 from .win32 import (
     BAND_GAP_AT_96DPI,
     BAND_HEIGHT_AT_96DPI,
@@ -19,6 +21,7 @@ from .win32 import (
     MA_NOACTIVATE,
     PAINTSTRUCT,
     SIZE,
+    SWP_HIDEWINDOW,
     SWP_NOACTIVATE,
     SWP_SHOWWINDOW,
     TRANSPARENT,
@@ -64,6 +67,7 @@ class Band:
         self._font: Optional[int] = None
         self._dpi = 96
         self._size = (0, 0)
+        self.shown = True
         self._proc = WNDPROC(self._wndproc)
 
     def create(self) -> bool:
@@ -117,14 +121,11 @@ class Band:
         return size.cx + 2 * self._scaled(BAND_PADDING_AT_96DPI)
 
     def _place(self) -> bool:
-        shell = user32.FindWindowW("Shell_TrayWnd", None)
-        tray = user32.FindWindowExW(shell, None, "TrayNotifyWnd", None)
-        if not shell or not tray:
+        x = self.slot_left()
+        if not x or not self.shell:
             return False
-        self.shell = shell
-        _, top, _, bottom = _window_rect(shell)
+        _, top, _, bottom = _window_rect(self.shell)
         width, height = self._width(self.text), self._scaled(BAND_HEIGHT_AT_96DPI)
-        x = _window_rect(tray)[0] - self._scaled(BAND_GAP_AT_96DPI) - width
         y = top + (bottom - top - height) // 2
         self._size = (width, height)
         if self.hwnd and not user32.IsWindow(self.hwnd):
@@ -139,37 +140,78 @@ class Band:
                 y,
                 width,
                 height,
-                shell,
+                self.shell,
                 None,
                 kernel32.GetModuleHandleW(None),
                 None,
             )
             if not self.hwnd:
                 return False
-        user32.SetWindowPos(
-            self.hwnd,
-            HWND_TOPMOST,
-            x,
-            y,
-            width,
-            height,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW,
-        )
+        user32.SetWindowPos(self.hwnd, HWND_TOPMOST, x, y, width, height, self._flags())
         return True
+
+    def slot_left(self) -> int:
+        """Return the x where the band starts, at the left edge of the taskbar."""
+        shell = user32.FindWindowW("Shell_TrayWnd", None)
+        if not shell:
+            return 0
+        self.shell = shell
+        left = _window_rect(shell)[0]
+        start = user32.FindWindowExW(shell, None, "Start", None)
+        if start:
+            box = _window_rect(start)
+            if box[0] < left + self._width(self.text) and box[2] > left:
+                left = box[2]
+        return left + self._scaled(BAND_GAP_AT_96DPI)
+
+    def _flags(self) -> int:
+        state = SWP_SHOWWINDOW if self.shown else SWP_HIDEWINDOW
+        return SWP_NOACTIVATE | state
 
     def keep_on_top(self) -> None:
         """Re-place the band and push it above the taskbar again."""
         self._place()
 
-    def update(self, text: str, color: Color) -> None:
-        """Replace the text and colour, then repaint."""
-        if text == self.text and color == self.color:
+    def fit(self, texts: Sequence[str], color: Color) -> Optional[str]:
+        """Show the widest text that clears the taskbar icons."""
+        chosen = fitting_text(texts, self._width, self._free_width(texts[0]))
+        if chosen is None:
+            self.hide()
+        else:
+            self.show(chosen, color)
+        return chosen
+
+    def show(self, text: str, color: Color) -> None:
+        """Draw the text and keep the band on the taskbar."""
+        changed = text != self.text or color != self.color
+        self.text, self.color = text, color
+        self.shown = True
+        if not self.hwnd:
             return
-        self.text = text
-        self.color = color
+        self._place()
+        if changed:
+            user32.InvalidateRect(self.hwnd, None, True)
+
+    def hide(self) -> None:
+        """Take the band off the taskbar."""
+        if not self.shown:
+            return
+        self.shown = False
         if self.hwnd:
             self._place()
-            user32.InvalidateRect(self.hwnd, None, True)
+
+    def _free_width(self, widest: str) -> int:
+        gap = self._scaled(BAND_GAP_AT_96DPI)
+        left = self.slot_left()
+        if not left or not self.shell:
+            return 0
+        start = left + self._width(self.text) if self.shown else left
+        stop = left + self._width(widest) + gap
+        _, top, _, bottom = _window_rect(self.shell)
+        found = content_left((start, top, stop, bottom)) if stop > start else None
+        if found is None:
+            return self._width(widest)
+        return found - left - gap
 
     def close(self) -> None:
         if self.hwnd:

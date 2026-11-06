@@ -18,6 +18,7 @@ from .widget import (
     alert_due,
     balance_value,
     band_text,
+    band_text_variants,
     next_refresh_minutes,
     text_color,
 )
@@ -25,6 +26,9 @@ from .widget import (
 WIN = sys.platform == "win32"
 AUTOSTART_KEY = r"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 AUTOSTART_NAME = "ccnu-epower-band"
+ALIGN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+ALIGN_VALUE = "TaskbarAl"
+ALIGNMENTS = {"left": 0, "center": 1}
 ACTION_REFRESH = 1
 ACTION_OPEN = 2
 ACTION_QUIT = 3
@@ -85,7 +89,7 @@ class TaskbarApp:
         if not self.band.create():
             print("找不到任务栏，无法显示电费", file=sys.stderr)
             return 1
-        for target in (self._loop, self._keep_on_top):
+        for target in (self._loop, self._tick):
             threading.Thread(target=target, daemon=True).start()
         self.band.run()
         self._stop.set()
@@ -96,10 +100,11 @@ class TaskbarApp:
             self.refresh()
             self._stop.wait(next_refresh_minutes(self.report) * 60)
 
-    def _keep_on_top(self) -> None:
+    def _tick(self) -> None:
         from . import win32
 
         while not self._stop.is_set():
+            self._fit()
             if not win32.is_above(self.band.hwnd, self.band.shell):
                 self.band.keep_on_top()
             self._stop.wait(KEEP_ON_TOP_SECONDS)
@@ -117,8 +122,12 @@ class TaskbarApp:
 
     def apply(self, report: Optional[dict[str, Any]]) -> None:
         self.report = report
-        self.band.update(band_text(report), text_color(report, self.light))
+        self._fit()
         self._alert(balance_value(report))
+
+    def _fit(self) -> None:
+        variants = band_text_variants(self.report)
+        self.band.fit(variants, text_color(self.report, self.light))
 
     def _alert(self, value: Optional[float]) -> None:
         if alert_cleared(value):
@@ -170,6 +179,14 @@ def autostart_target() -> str:
     return subprocess.list2cmdline([str(executable), "-m", "epower.taskbar"])
 
 
+def set_taskbar_alignment(side: str) -> None:
+    """Write the Windows 11 taskbar alignment setting."""
+    import winreg
+
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, ALIGN_KEY) as key:
+        winreg.SetValueEx(key, ALIGN_VALUE, 0, winreg.REG_DWORD, ALIGNMENTS[side])
+
+
 def install_autostart() -> str:
     import winreg
 
@@ -209,6 +226,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--uninstall-autostart", action="store_true", help="删除开机自启，然后退出"
     )
+    parser.add_argument(
+        "--taskbar-align",
+        choices=sorted(ALIGNMENTS),
+        help="设置 Windows 11 任务栏对齐，然后退出",
+    )
     return parser
 
 
@@ -227,6 +249,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.install_autostart:
         print(f"已写入开机自启：{install_autostart()}")
+        return 0
+    if args.taskbar_align:
+        set_taskbar_alignment(args.taskbar_align)
+        print(f"已设置任务栏对齐：{args.taskbar_align}")
         return 0
     if args.uninstall_autostart:
         removed = uninstall_autostart()
